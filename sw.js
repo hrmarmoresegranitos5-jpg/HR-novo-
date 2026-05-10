@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════
-// HR Mármores e Granitos — Service Worker v17
+// HR Mármores e Granitos — Service Worker v18
 // ═══════════════════════════════════════════════════════
 
-var CACHE_VERSION = 'hr-app-v17';
+var CACHE_VERSION = 'hr-app-v18';
 
 var APP_SHELL = [
   '/Novo-app/index.html',
