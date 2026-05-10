@@ -1442,10 +1442,13 @@ function _tumV12OpenModal() {
     }
   } catch(e) { console.warn('CFG bridge:', e); }
 
-  // Run init after DOM is ready
+  // Run init after DOM is ready (call init() directly — no naming conflict with app-core)
   setTimeout(function() {
-    try { if(typeof window._tumV12_init==='function') window._tumV12_init(); } catch(e) { console.warn('tum v12 init:', e); }
-  }, 50);
+    try {
+      if(typeof window._tumV12_init==='function') window._tumV12_init();
+      else if(typeof init==='function') init();
+    } catch(e) { console.warn('tum v12 init error:', e); }
+  }, 80);
 }
 
 function closeTumOrcModal() {
@@ -5094,4 +5097,7 @@ window._tumV12_salvarHistorico = function() {
 
   // Fecha o modal após salvar
   setTimeout(function() { closeTumOrcModal(); }, 1400);
-};
+}
+
+// Expor init para o modal manager
+window._tumV12_init = init;
