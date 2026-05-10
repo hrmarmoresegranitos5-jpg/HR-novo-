@@ -1418,37 +1418,48 @@ function _tumV12OpenModal() {
   overlay.innerHTML = TUM_V12_HTML;
   document.body.appendChild(overlay);
 
-  // BRIDGE: sync main app CFG (stones, groqKey, company)
+  // BRIDGE: sync com o CFG do app principal (salvo antes do v12 sobrescrever)
   try {
-    if(window.CFG) {
-      if(window.CFG.stones && window.CFG.stones.length) {
-        CFG.pedras = window.CFG.stones.map(function(s){
-          return {id:s.id, nm:s.nm, cat:s.cat||'Granito', pr:s.pr, peso:s.peso||2750, esp:2,
-                  fin:s.fin||'Polida', photo:s.photo||''};
+    // Reler CFG principal do localStorage — garantido que tem .stones
+    var _mc = JSON.parse(localStorage.getItem('hr_cfg') || 'null') || _mainCFG;
+    if(_mc) {
+      if(_mc.stones && _mc.stones.length) {
+        CFG.pedras = _mc.stones.map(function(s){
+          return {id:s.id, nm:s.nm, cat:s.cat||'Granito', pr:s.pr||200,
+                  peso:s.peso||2750, esp:2, fin:s.fin||'Polida', photo:s.photo||''};
         });
       }
-      if(window.CFG.groqKey) CFG.groqKey = window.CFG.groqKey;
-      if(window.CFG.emp) {
-        CFG.emp.nome = window.CFG.emp.nome||CFG.emp.nome;
-        CFG.emp.tel  = window.CFG.emp.tel ||CFG.emp.tel;
-        CFG.emp.end  = window.CFG.emp.end ||CFG.emp.end;
-        CFG.emp.cidade = window.CFG.emp.cidade||CFG.emp.cidade;
+      if(_mc.groqKey) CFG.groqKey = _mc.groqKey;
+      if(_mc.emp) {
+        CFG.emp.nome   = _mc.emp.nome   || CFG.emp.nome;
+        CFG.emp.tel    = _mc.emp.tel    || CFG.emp.tel;
+        CFG.emp.end    = _mc.emp.end    || CFG.emp.end;
+        CFG.emp.cidade = _mc.emp.cidade || CFG.emp.cidade;
       }
-      if(window.CFG.tumulos) {
-        if(window.CFG.tumulos.civil) CFG.civil = window.CFG.tumulos.civil;
-        if(window.CFG.tumulos.mob)   CFG.mob   = window.CFG.tumulos.mob;
-        if(typeof window.CFG.tumulos.margem!=='undefined') CFG.margem = window.CFG.tumulos.margem;
+      if(_mc.tumulos) {
+        if(_mc.tumulos.civil) CFG.civil = _mc.tumulos.civil;
+        if(_mc.tumulos.mob)   CFG.mob   = _mc.tumulos.mob;
+        if(typeof _mc.tumulos.margem!=='undefined') CFG.margem = _mc.tumulos.margem;
       }
     }
   } catch(e) { console.warn('CFG bridge:', e); }
 
-  // Run init after DOM is ready (call init() directly — no naming conflict with app-core)
+  // Run init after DOM is ready
   setTimeout(function() {
     try {
-      if(typeof window._tumV12_init==='function') window._tumV12_init();
-      else if(typeof init==='function') init();
-    } catch(e) { console.warn('tum v12 init error:', e); }
-  }, 80);
+      init();
+    } catch(e) {
+      // Fallback: chamar cada função individualmente
+      console.warn('v12 init error, using fallback:', e);
+      [buildPresets,buildTipoServ,buildMatCats,buildMatList,buildPecas,
+       buildAcabamentos,buildTampasAcab,buildMolduraPresets,buildGradePresets,
+       buildOpcionais,buildFalecidos].forEach(function(fn){
+        try{fn();}catch(e2){}
+      });
+      try{var p=PRESETS.find(function(x){return x.id===SEL.preset;});if(p)aplicarPreset(p,true);}catch(e2){}
+      try{atualizarTampasUI();}catch(e2){}
+    }
+  }, 100);
 }
 
 function closeTumOrcModal() {
@@ -1507,6 +1518,8 @@ function renderTum() { _tumV12OpenModal(); }
 // CONFIG — ESTADO GLOBAL
 // ══════════════════════════════════════════════
 
+// Salvar CFG do app principal ANTES de sobrescrever com o CFG do v12
+var _mainCFG = window.CFG || JSON.parse(localStorage.getItem('hr_cfg') || 'null');
 var CFG = JSON.parse(localStorage.getItem('hr_tum_cfg') || 'null');
 var HIST = JSON.parse(localStorage.getItem('hr_tum_hist') || '[]');
 
@@ -4916,10 +4929,10 @@ function imprimirProducao() {
 }
 
 // ══════════════════════════════════════════════
-// START
+// START — NÃO chamar init() aqui; modal não existe ainda
+// init() é chamado pelo _tumV12OpenModal() após injetar o HTML
 // ══════════════════════════════════════════════
-
-init();
+// (init removido — chamado pelo modal manager)
 
 
 // Expor funções necessárias para o wrapper externo e HTML onclick
