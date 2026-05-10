@@ -1418,6 +1418,30 @@ function _tumV12OpenModal() {
   overlay.innerHTML = TUM_V12_HTML;
   document.body.appendChild(overlay);
 
+  // BRIDGE: sync main app CFG (stones, groqKey, company)
+  try {
+    if(window.CFG) {
+      if(window.CFG.stones && window.CFG.stones.length) {
+        CFG.pedras = window.CFG.stones.map(function(s){
+          return {id:s.id, nm:s.nm, cat:s.cat||'Granito', pr:s.pr, peso:s.peso||2750, esp:2,
+                  fin:s.fin||'Polida', photo:s.photo||''};
+        });
+      }
+      if(window.CFG.groqKey) CFG.groqKey = window.CFG.groqKey;
+      if(window.CFG.emp) {
+        CFG.emp.nome = window.CFG.emp.nome||CFG.emp.nome;
+        CFG.emp.tel  = window.CFG.emp.tel ||CFG.emp.tel;
+        CFG.emp.end  = window.CFG.emp.end ||CFG.emp.end;
+        CFG.emp.cidade = window.CFG.emp.cidade||CFG.emp.cidade;
+      }
+      if(window.CFG.tumulos) {
+        if(window.CFG.tumulos.civil) CFG.civil = window.CFG.tumulos.civil;
+        if(window.CFG.tumulos.mob)   CFG.mob   = window.CFG.tumulos.mob;
+        if(typeof window.CFG.tumulos.margem!=='undefined') CFG.margem = window.CFG.tumulos.margem;
+      }
+    }
+  } catch(e) { console.warn('CFG bridge:', e); }
+
   // Run init after DOM is ready
   setTimeout(function() {
     try { if(typeof window._tumV12_init==='function') window._tumV12_init(); } catch(e) { console.warn('tum v12 init:', e); }
@@ -3688,18 +3712,72 @@ function imprimirPDF() {
 
 function salvarHistorico() {
   if (!pendOrc) { toast('Gere um orçamento primeiro', true); return; }
-  // Checar duplicata (mesmo id)
+  // 1. Salvar no histórico interno v12
   var idx = HIST.findIndex(function(h){ return h.id === pendOrc.id; });
   if (idx >= 0) {
     HIST[idx] = JSON.parse(JSON.stringify(pendOrc));
-    toast('✓ Orçamento atualizado!');
   } else {
     HIST.unshift(JSON.parse(JSON.stringify(pendOrc)));
     if (HIST.length > 50) HIST.pop();
-    toast('✓ Salvo no histórico!');
   }
   localStorage.setItem('hr_tum_hist', JSON.stringify(HIST));
   renderHistorico();
+
+  // 2. PONTE → salvar no DB.q do app principal (Histórico, Agenda, Finanças)
+  try {
+    if (typeof window.DB !== 'undefined' && window.DB.q) {
+      var r = pendOrc.r;
+      var fals = (pendOrc.fal||[]).filter(function(f){return f.nome&&f.nome.trim();});
+      var falStr = fals.length ? ' · Falecido: '+fals.map(function(f){return f.nome;}).join(', ') : '';
+      var locStr = [pendOrc.cemi, pendOrc.quad?'Q.'+pendOrc.quad:'', pendOrc.lote?'L.'+pendOrc.lote:''].filter(Boolean).join(' ');
+      // Converter pecasCalc para formato do app principal
+      var pds = (r.pecasCalc||[]).map(function(p){
+        var pts = (p.dim||'').match(/(\d+(?:\.\d+)?)×(\d+(?:\.\d+)?)/);
+        return {desc:p.nm, w:pts?Math.round(+pts[1]):p.w||0, h:pts?Math.round(+pts[2]):p.h||0, q:p.q||1, m2:+(p.m2||0).toFixed(4)};
+      });
+      var acT = (r.custo_mob||0) + (r.civil?r.civil.custo||0:0) + (r.custo_acab||0);
+      var mainQ = {
+        id: pendOrc.id,
+        date: (pendOrc.dateISO||new Date().toISOString()).split('T')[0],
+        cli:  pendOrc.cli||'',
+        tel:  pendOrc.tel||'',
+        cidade: pendOrc.cid||'',
+        end:  locStr,
+        obs:  (pendOrc.obs||'') + falStr,
+        tipo: 'Túmulo',
+        mat:  r.mat.nm,
+        matPr: r.mat.pr,
+        m2:   +(r.m2_total||0).toFixed(3),
+        pedT: Math.round(r.custo_pedra||0),
+        acT:  Math.round(acT),
+        acN:  [pendOrc.tipoServNm, pendOrc.matNm+' '+pendOrc.acabNm].filter(Boolean),
+        pds:  pds,
+        sfPcs:[],
+        vista: Math.round(r.valor_vista||0),
+        parc:  Math.round((r.valor_vista||0)*1.12),
+        p8:    Math.round((r.valor_vista||0)*1.12/8),
+        ent:   Math.round((r.valor_vista||0)/2),
+        prazo: r.prazo_total||0,
+        pesoKg: Math.round(r.peso_total||0),
+        tumV12: JSON.parse(JSON.stringify(pendOrc)),
+        ambSnap: [{
+          tipo:'Túmulo', selCuba:null, svState:{}, acState:{},
+          pecas: pds.map(function(p,i){ return {id:Date.now()+i,desc:p.desc,w:p.w,h:p.h,q:p.q}; })
+        }]
+      };
+      var mIdx = window.DB.q.findIndex(function(q){ return q.id===mainQ.id; });
+      if (mIdx>=0) { window.DB.q[mIdx]=mainQ; toast('✓ Orçamento atualizado!'); }
+      else         { window.DB.q.unshift(mainQ); toast('✓ Salvo no histórico do app!'); }
+      window.DB.sv();
+      // Atualizar contador na aba histórico do app principal
+      if (typeof window.renderOrc==='function') setTimeout(window.renderOrc, 100);
+    } else {
+      toast('✓ Salvo!');
+    }
+  } catch(e) {
+    console.warn('Bridge salvarHistorico:', e);
+    toast('✓ Salvo (v12)!');
+  }
 }
 
 // ══════════════════════════════════════════════
