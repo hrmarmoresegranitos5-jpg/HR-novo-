@@ -10,7 +10,8 @@ var APP_SHELL = [
   '/Novo-app/manifest.json',
   '/Novo-app/icon-192.png',
   '/Novo-app/icon-512.png',
-  '/Novo-app/app-core.js'
+  '/Novo-app/app-core.js',
+  '/Novo-app/app-tumulos-orcamento.js'
 ];
 // ── INSTALL: pré-cacheia o app shell ──
 self.addEventListener('install', function(e) {
