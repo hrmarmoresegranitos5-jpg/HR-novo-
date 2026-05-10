@@ -1465,6 +1465,13 @@ function _tumV12OpenModal() {
         if (lbl) lbl.textContent = '① Cliente — preenchido pelo orçamento';
       }
     }
+    // Forçar sync de pedras ANTES de init()
+    try {
+      var _mc2 = JSON.parse(localStorage.getItem('hr_cfg') || 'null');
+      if (_mc2 && _mc2.stones && _mc2.stones.length) {
+        _tumSyncStones(_mc2.stones);
+      }
+    } catch(e2) {}
     try {
       init();
     } catch(e) {
@@ -5217,5 +5224,34 @@ window._tumV12_salvarHistorico = function() {
 }
 
 // Expor init para o modal manager
+
+// ── Sync pedras do catálogo principal para o v12 ──────────────────────
+// Chamada diretamente por openTumCalc() no app-core.js
+function _tumSyncStones(stones) {
+  if (!stones || !stones.length) return;
+  CFG.pedras = stones.map(function(s) {
+    return {
+      id:    s.id,
+      nm:    s.nm,
+      cat:   s.cat || 'Granito',
+      pr:    s.pr  || 200,
+      peso:  s.peso || 2750,
+      esp:   2,
+      fin:   s.fin  || 'Polida',
+      photo: s.photo || ''
+    };
+  });
+  // Garantir pedra selecionada válida
+  if (CFG.pedras.length && (!SEL.matId || !CFG.pedras.find(function(p){return p.id===SEL.matId;}))) {
+    SEL.matId = CFG.pedras[0].id;
+  }
+  // Reconstruir UI de material se modal estiver aberto
+  if (document.getElementById('tumOrcModal')) {
+    try { buildMatCats(); } catch(e) {}
+    try { buildMatList(); } catch(e) {}
+  }
+}
+
 window._tumV12_init = init;
+window._tumSyncStones = _tumSyncStones;
 window._tumAplicarAoAmbiente = _tumAplicarAoAmbiente;
