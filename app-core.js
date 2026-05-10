@@ -4539,6 +4539,10 @@ function openTumCalc(ambId){
     _tumV12OpenModal();
     // Após abrir, pre-preencher dados do ambiente
     setTimeout(function(){
+      // ── Sincronizar pedras do catálogo principal → v12 ──
+      if(typeof window._tumSyncStones==='function'){
+        window._tumSyncStones(CFG.stones||[]);
+      }
       // Pre-preencher do app principal (não perguntar duas vezes)
       var cliEl=document.getElementById('iCli');
       if(cliEl){var v=document.getElementById('oCliente');if(v&&v.value)cliEl.value=v.value;}
