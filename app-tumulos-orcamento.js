@@ -1446,10 +1446,24 @@ function _tumV12OpenModal() {
 
   // Run init after DOM is ready
   setTimeout(function() {
-    // Mostrar botão "Aplicar ao Ambiente" quando aberto de um ambiente
+    // Quando aberto de um ambiente: mostrar botão Aplicar e ocultar seção Cliente
     var _btnA = document.getElementById('btnAplicarAmb');
-    if (_btnA && typeof _tumCalcAmbId !== 'undefined' && _tumCalcAmbId) {
+    var _fromAmb = typeof _tumCalcAmbId !== 'undefined' && _tumCalcAmbId;
+    if (_btnA && _fromAmb) {
       _btnA.style.display = 'inline-flex';
+    }
+    // Ocultar seção ① Cliente no v12 (já preenchido pelo app principal)
+    if (_fromAmb) {
+      var sCliente = document.getElementById('sCliente');
+      if (sCliente) {
+        var cb = sCliente.querySelector('.card-body');
+        if (cb) cb.style.display = 'none';
+        // Mostrar aviso compacto
+        var hd = sCliente.querySelector('.card-head');
+        if (hd) hd.style.cursor = 'default';
+        var lbl = sCliente.querySelector('.card-title');
+        if (lbl) lbl.textContent = '① Cliente — preenchido pelo orçamento';
+      }
     }
     try {
       init();
@@ -4971,13 +4985,17 @@ function _tumAplicarAoAmbiente() {
     if (!amb.pecas.length) amb.pecas = [{id:Date.now(),desc:'',w:0,h:0,q:1}];
   }
 
-  // ── 2. Selecionar pedra no ambiente (se não tiver) ──
+  // ── 2. Selecionar pedra no ambiente — buscar no catálogo do app ──
   var mat = r.mat;
-  if (mat && mat.id && typeof window.CFG !== 'undefined') {
-    var stoneInApp = window.CFG.stones
-      ? window.CFG.stones.find(function(s){ return s.id===mat.id; })
-      : null;
-    if (!amb.selMat && stoneInApp) amb.selMat = stoneInApp.id;
+  if (mat && mat.id) {
+    try {
+      var mainCFG = JSON.parse(localStorage.getItem('hr_cfg') || 'null');
+      var stones = (mainCFG && mainCFG.stones) ? mainCFG.stones : [];
+      // Tentar match por id, depois por nome
+      var stone = stones.find(function(s){ return s.id===mat.id; }) ||
+                  stones.find(function(s){ return s.nm===mat.nm; });
+      if (stone) amb.selMat = stone.id;
+    } catch(e) {}
   }
 
   // ── 3. Serviços de mão de obra e civil → amb.svState{} ──
