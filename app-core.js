@@ -4539,11 +4539,13 @@ function openTumCalc(ambId){
     _tumV12OpenModal();
     // Após abrir, pre-preencher dados do ambiente
     setTimeout(function(){
-      // Cliente
-      var cliEl = document.getElementById('iCli');
-      if(cliEl){var cliMain=document.getElementById('cli');if(cliMain&&cliMain.value)cliEl.value=cliMain.value;}
-      var telEl = document.getElementById('iTel');
-      if(telEl){var telMain=document.getElementById('tel');if(telMain&&telMain.value)telEl.value=telMain.value;}
+      // Pre-preencher do app principal (não perguntar duas vezes)
+      var cliEl=document.getElementById('iCli');
+      if(cliEl){var v=document.getElementById('oCliente');if(v&&v.value)cliEl.value=v.value;}
+      var telEl=document.getElementById('iTel');
+      if(telEl){var v=document.getElementById('oTel');if(v&&v.value)telEl.value=v.value;}
+      var cidEl=document.getElementById('iCidade');
+      if(cidEl&&!cidEl.value){var v=document.getElementById('oCidade');if(v&&v.value)cidEl.value=v.value;}
       // Dados do túmulo
       if(amb&&amb.tumExtra){
         var te=amb.tumExtra;
