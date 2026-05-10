@@ -1420,7 +1420,7 @@ function _tumV12OpenModal() {
 
   // Run init after DOM is ready
   setTimeout(function() {
-    try { init(); } catch(e) { console.warn('tum v12 init:', e); }
+    try { if(typeof window._tumV12_init==='function') window._tumV12_init(); } catch(e) { console.warn('tum v12 init:', e); }
   }, 50);
 }
 
@@ -1468,6 +1468,13 @@ function tumAbrirComAmb(ambId) {
 function tumInit()   { _tumV12OpenModal(); }
 function renderTum() { _tumV12OpenModal(); }
 
+
+// ══════════════════════════════════════════════
+// V12 ENGINE — Isolado em namespace próprio
+// ══════════════════════════════════════════════
+(function() {
+// Shadowing: variáveis do v12 ficam isoladas aqui dentro
+// As funções que precisam ser acessadas externamente são expostas via window._tumV12_*
 
 // ══════════════════════════════════════════════
 // CONFIG — ESTADO GLOBAL
@@ -4834,14 +4841,43 @@ function imprimirProducao() {
 init();
 
 
+// Expor funções necessárias para o wrapper externo e HTML onclick
+window._tumV12_init            = init;
+window.init                    = init;  // needed by setTimeout in wrapper
+window._tumV12_SEL             = function(){ return SEL; };
+window._tumV12_CFG             = function(){ return CFG; };
+window._tumV12_PRESETS         = function(){ return PRESETS; };
+window._tumV12_buildFalecidos  = function(){ if(typeof buildFalecidos==='function') buildFalecidos(); };
+window._tumV12_salvarHistorico = salvarHistorico;
+window.salvarHistorico         = salvarHistorico;
+window._tumV12_pendOrc         = function(){ return pendOrc; };
+window._tumV12_pendOrcSet      = function(v){ pendOrc = v; };
+window._tumV12_calcularFull    = calcularFull;
+// Expose ALL functions that the HTML template calls via onclick
+var _v12Fns = [
+  'showTab','calcularFinal','copiarWA','imprimirPDF','salvarHistorico',
+  'aplicarPreset','selTipoServ','selMat','selAcab','togPeca','togOpt','adjOpt',
+  'addFalecido','remFalecido','mascaraTel','atualizarSteps','selMatCat',
+  'verHistorico','recarregarOrcamento','copiarWAHist','confirmarDel',
+  'confirmarLimpar','exportarHistorico','svCfg','resetCfg','importarCfg',
+  'exportarCfg','abrirModalPedra','fecharModal','abrirModal','buildPedrasCfg',
+  'selEngrossar','adjGrade','togArgolas','atualizarTampasUI','buildGradePresets',
+  'buildMolduraPresets','renderChapas','imprimirProducao','testarGroq',
+  'iaAnalisar','iaOnFileSelect','renderEncontroBox'
+];
+_v12Fns.forEach(function(fn) {
+  try { if(typeof eval(fn)==='function') window[fn] = eval(fn); } catch(e) {}
+});
+})();
+
 // ─────────────────────────────────────────────────────────────────────
 // PATCH: Sincronizar salvar com DB.j, DB.t, DB.q do Novo-app
 // ─────────────────────────────────────────────────────────────────────
-var _tumV12_salvarOriginal = salvarHistorico;
-salvarHistorico = function() {
-  _tumV12_salvarOriginal();
+var _tumV12_salvarOriginal = window._tumV12_salvarHistorico;
+window._tumV12_salvarHistorico = function() {
+  if(typeof _tumV12_salvarOriginal==='function') _tumV12_salvarOriginal();
 
-  if (!pendOrc) return;
+  var pendOrc = typeof window._tumV12_pendOrc==='function' ? window._tumV12_pendOrc() : null; if (!pendOrc) return;
   var o = pendOrc;
   var r = o.r;
   if (!r) return;
@@ -4950,11 +4986,11 @@ salvarHistorico = function() {
       ambSync.tumExtra.prazo_dias = r.prazo_total;
       ambSync.tumExtra.altura_cm = Math.round((r.A || 0) * 100);
       // Subtipo
-      var presSyn = (typeof PRESETS !== 'undefined' ? PRESETS : []).find(function(p){ return p.id === (typeof SEL !== 'undefined' ? SEL.preset : ''); });
+      var presSyn = (typeof window._tumV12_PRESETS==='function' ? window._tumV12_PRESETS() : []).find(function(p){ var _s=typeof window._tumV12_SEL==='function'?window._tumV12_SEL():{}; return p.id === (_s.preset||''); });
       if (presSyn) ambSync.tumExtra.subtipo = presSyn.nm + (r.d && r.d.N > 0 ? ' — ' + r.d.N + ' compartimento' + (r.d.N > 1 ? 's' : '') : '');
       // Falecido
-      if (typeof SEL !== 'undefined' && SEL.falecidos && SEL.falecidos.length > 0 && SEL.falecidos[0].nome) {
-        ambSync.tumExtra.falecido = SEL.falecidos.map(function(f){ return f.nome; }).filter(Boolean).join(', ');
+      var _sSyn = typeof window._tumV12_SEL==='function' ? window._tumV12_SEL() : {}; if (_sSyn && _sSyn.falecidos && _sSyn.falecidos.length > 0 && _sSyn.falecidos[0].nome) {
+        ambSync.tumExtra.falecido = _sSyn.falecidos.map(function(f){ return f.nome; }).filter(Boolean).join(', ');
       }
       // Cemitério
       var cemSEl = document.getElementById('iCemiterio');
