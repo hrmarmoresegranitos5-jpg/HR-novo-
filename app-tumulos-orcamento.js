@@ -1091,9 +1091,9 @@ var TUM_V12_HTML = `
 
     <!-- AÇÕES -->
     <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;margin-bottom:30px">
-      <button class="btn btn-out btn-sm" onclick="copiarWA()">📲 Copiar WhatsApp</button>
-      <button class="btn btn-out btn-sm" onclick="imprimirPDF()">🖨 Imprimir / PDF</button>
-      <button class="btn btn-gold btn-sm" onclick="salvarHistorico()">💾 Salvar</button>
+      <button id="btnAplicarAmb" onclick="_tumAplicarAoAmbiente()" style="display:none;background:linear-gradient(135deg,#1e6b30,#165225);border:1px solid #2d9444;color:#6ddc8a;font-weight:700;padding:10px 18px;border-radius:10px;cursor:pointer;font-family:Outfit,sans-serif;font-size:.85rem;">✅ Aplicar ao Ambiente</button>
+      <button class="btn btn-out btn-sm" onclick="copiarWA()">📲 WhatsApp</button>
+      <button class="btn btn-out btn-sm" onclick="imprimirPDF()">🖨 PDF</button>
     </div>
 
     <textarea id="txtWA" style="position:absolute;left:-9999px" readonly></textarea>
@@ -1446,6 +1446,11 @@ function _tumV12OpenModal() {
 
   // Run init after DOM is ready
   setTimeout(function() {
+    // Mostrar botão "Aplicar ao Ambiente" quando aberto de um ambiente
+    var _btnA = document.getElementById('btnAplicarAmb');
+    if (_btnA && typeof _tumCalcAmbId !== 'undefined' && _tumCalcAmbId) {
+      _btnA.style.display = 'inline-flex';
+    }
     try {
       init();
     } catch(e) {
@@ -4935,6 +4940,87 @@ function imprimirProducao() {
 // (init removido — chamado pelo modal manager)
 
 
+// ══════════════════════════════════════════════════════════════════════
+// APLICAR AO AMBIENTE — mapeia resultado v12 para o ambiente do app
+// Isso permite o fluxo: Calcular Orçamento → Histórico → Agenda → Finanças
+// ══════════════════════════════════════════════════════════════════════
+function _tumAplicarAoAmbiente() {
+  if (!pendOrc) { toast('Gere o orçamento primeiro', true); return; }
+  var ambId = typeof _tumCalcAmbId !== 'undefined' ? _tumCalcAmbId : null;
+  if (!ambId || typeof window.ambientes === 'undefined') {
+    toast('Abra pelo botão no ambiente', true); return;
+  }
+  var amb = window.ambientes.find(function(a){ return a.id == ambId; });
+  if (!amb) { toast('Ambiente não encontrado', true); return; }
+
+  var r = pendOrc.r;
+
+  // ── 1. Peças de pedra → amb.pecas[] ──
+  if (r.pecasCalc && r.pecasCalc.length) {
+    amb.pecas = r.pecasCalc.map(function(p, i) {
+      // p.dim pode ser "200×70cm" ou "200x70cm"
+      var pts = (p.dim||'').match(/([0-9.]+)[x×]([0-9.]+)/i);
+      return {
+        id: Date.now() + i,
+        desc: p.nm || '',
+        w: pts ? Math.round(+pts[1]) : (p.w || 0),
+        h: pts ? Math.round(+pts[2]) : (p.h || 0),
+        q: p.q || 1
+      };
+    });
+    if (!amb.pecas.length) amb.pecas = [{id:Date.now(),desc:'',w:0,h:0,q:1}];
+  }
+
+  // ── 2. Selecionar pedra no ambiente (se não tiver) ──
+  var mat = r.mat;
+  if (mat && mat.id && typeof window.CFG !== 'undefined') {
+    var stoneInApp = window.CFG.stones
+      ? window.CFG.stones.find(function(s){ return s.id===mat.id; })
+      : null;
+    if (!amb.selMat && stoneInApp) amb.selMat = stoneInApp.id;
+  }
+
+  // ── 3. Serviços de mão de obra e civil → amb.svState{} ──
+  amb.svState = {};
+  var isEstrutura = pendOrc.tipoServNm && pendOrc.tipoServNm.toLowerCase().indexOf('estrutura') >= 0;
+  if (isEstrutura) {
+    amb.svState['tum_montc'] = {on:true};
+    var labObra = Math.round((r.custo_ped||0) + (r.custo_ajud||0));
+    var matCivil = r.civil ? Math.round(r.civil.custo||0) : 0;
+    if (labObra > 0)  amb.svState['tum_lev']  = {on:true, w:labObra};
+    if (matCivil > 0) amb.svState['tum_conc'] = {on:true, w:matCivil};
+  } else {
+    amb.svState['tum_mont'] = {on:true};
+  }
+
+  // ── 4. Metadados do túmulo → amb.tumExtra{} ──
+  var fals = (pendOrc.fal||[]).filter(function(f){ return f.nome&&f.nome.trim(); });
+  amb.tumExtra = {
+    calc_ok:   true,
+    m2_total:  +(r.m2_total||0).toFixed(3),
+    m2_bruto:  +(r.m2_bruto||0).toFixed(3),
+    peso_kg:   Math.round(r.peso_total||0),
+    prazo_dias: r.prazo_total || 0,
+    perda_pct: r.perdaFinal || 0,
+    gavetas:   r.d ? (r.d.N || 0) : 0,
+    altura_cm: r.d ? Math.round((r.d.A||0)*100) : 0,
+    subtipo:   pendOrc.preset || '',
+    falecido:  fals.length ? fals[0].nome : '',
+    cemiterio: pendOrc.cemi || '',
+    quadra:    pendOrc.quad || '',
+    lote:      pendOrc.lote || ''
+  };
+
+  // ── 5. Fechar modal e voltar ao app ──
+  closeTumOrcModal();
+  if (typeof window.renderAmbientes === 'function') window.renderAmbientes();
+  if (typeof window.toast === 'function') {
+    window.toast('✅ ' + (amb.pecas.length) + ' peças aplicadas — ' +
+      amb.tumExtra.m2_total + 'm² · ' + amb.tumExtra.prazo_dias + ' dias');
+  }
+}
+
+
 // Expor funções necessárias para o wrapper externo e HTML onclick
 window._tumV12_init            = init;
 window.init                    = init;  // needed by setTimeout in wrapper
@@ -5114,3 +5200,4 @@ window._tumV12_salvarHistorico = function() {
 
 // Expor init para o modal manager
 window._tumV12_init = init;
+window._tumAplicarAoAmbiente = _tumAplicarAoAmbiente;
