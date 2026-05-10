@@ -4532,31 +4532,6 @@ function tc_calcular(){
 
 // ── MODAL ─────────────────────────────────────────────────────────
 function openTumCalc(ambId){
-  // Usar o sistema v12 se disponível
-  if(typeof _tumV12OpenModal === 'function'){
-    _tumCalcAmbId = ambId;
-    var amb = ambientes.find(function(a){return a.id==ambId;});
-    _tumV12OpenModal();
-    // Após abrir, pre-preencher dados do ambiente
-    setTimeout(function(){
-      // Cliente
-      var cliEl = document.getElementById('iCli');
-      if(cliEl){var cliMain=document.getElementById('cli');if(cliMain&&cliMain.value)cliEl.value=cliMain.value;}
-      var telEl = document.getElementById('iTel');
-      if(telEl){var telMain=document.getElementById('tel');if(telMain&&telMain.value)telEl.value=telMain.value;}
-      // Dados do túmulo
-      if(amb&&amb.tumExtra){
-        var te=amb.tumExtra;
-        // Falecido - novo sistema usa SEL.falecidos array
-        if(te.falecido&&typeof SEL!=='undefined'&&SEL.falecidos){SEL.falecidos[0].nome=te.falecido;if(typeof buildFalecidos==='function')buildFalecidos();}
-        var cemEl=document.getElementById('iCemiterio');if(cemEl&&te.cemiterio)cemEl.value=te.cemiterio;
-        var qEl=document.getElementById('iQuadra');if(qEl&&te.quadra)qEl.value=te.quadra;
-        var lEl=document.getElementById('iLote');if(lEl&&te.lote)lEl.value=te.lote;
-      }
-    }, 200);
-    return;
-  }
-  // Fallback: calculadora original
   _tumCalcAmbId=ambId;
   var existing=document.getElementById('tumCalcMd');
   if(existing)existing.remove();
@@ -4567,10 +4542,10 @@ function openTumCalc(ambId){
     pecas:{tampa:true,lat_esq:true,lat_dir:true,frente:true,fundo:false,lapide:false,rodape:false},
     tampas:{moldura:10,linhas:1,colunas:1,espTampa:3}};}
   var mat=amb.selMat?CFG.stones.find(function(s){return s.id===amb.selMat;}):null;
-  var matNm=mat?mat.nm+'<span style="color:var(--gold2);margin-left:6px;">R$ '+mat.pr+'/m²</span>':'<span style="color:var(--red)">⚠️ Selecione a pedra no ambiente primeiro</span>';
+  var matNm=mat?mat.nm+' — R$ '+mat.pr+'/m²':'⚠️ Selecione a pedra no ambiente primeiro';
   var el=document.createElement('div');
   el.id='tumCalcMd';
-  el.style.cssText='position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.88);overflow-y:auto;-webkit-overflow-scrolling:touch;';
+  el.style.cssText='position:fixed;inset:0;z-index:9500;background:#09090a;overflow-y:auto;-webkit-overflow-scrolling:touch;';
   el.innerHTML=_tcBuildHtml(matNm);
   document.body.appendChild(el);
   _tcRefresh();
@@ -4578,137 +4553,117 @@ function openTumCalc(ambId){
   if(p)_tcFillInputs(p);
   tc_calcular();
 }
+
 function closeTumCalc(){var el=document.getElementById('tumCalcMd');if(el)el.remove();}
 
 function _tcBuildHtml(matNm){
-  var IS='background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:11px 13px;color:var(--tx);font-size:.88rem;width:100%;box-sizing:border-box;font-family:Outfit,sans-serif;outline:none;transition:border-color .2s,background .2s;-webkit-appearance:none;';
-  var inp=function(id,lbl,ph,extra){
+  var C2='#101012',C3='#161618',C4='#1d1d20';
+  var GOLD='#c9a84c',G2='#e8c96a',TX='#edeae2',T2='#b0ab9e',T3='#787068',T4='#484440';
+  var BD='rgba(255,255,255,.08)',BD2='rgba(255,255,255,.11)';
+  var GD='rgba(201,168,76,.15)',GB='rgba(201,168,76,.2)';
+  function inp(id,lbl,ph,xtra){
     return '<div style="display:flex;flex-direction:column;gap:5px;">'
-      +'<label style="font-size:.57rem;color:var(--t4);text-transform:uppercase;letter-spacing:.8px;font-weight:600;">'+lbl+'</label>'
-      +'<input type="number" id="'+id+'" placeholder="'+ph+'" value="'+ph+'" '+(extra||'')
-      +' oninput="tc_calcular()"'
-      +' onfocus="this.style.borderColor=\'rgba(201,168,76,.55)\';this.style.background=\'rgba(201,168,76,.05)\'"'
-      +' onblur="this.style.borderColor=\'rgba(255,255,255,.1)\';this.style.background=\'rgba(255,255,255,.05)\'"'
-      +' style="'+IS+'"></div>';
-  };
-  var sec=function(ic,lbl,sub){
-    return '<div style="display:flex;align-items:center;gap:10px;margin:22px 0 12px;">'
-      +'<div style="width:3px;height:22px;background:linear-gradient(to bottom,#c9a84c,rgba(201,168,76,.2));border-radius:2px;flex-shrink:0;"></div>'
-      +'<div>'
-      +'<div style="font-size:.72rem;font-weight:700;color:var(--t1);letter-spacing:.2px;">'+ic+' '+lbl+'</div>'
-      +(sub?'<div style="font-size:.56rem;color:var(--t4);margin-top:1px;">'+sub+'</div>':'')
-      +'</div></div>';
-  };
-  var hasMat=matNm.indexOf('Selecione')===-1;
-  var h='<div style="max-width:500px;margin:0 auto 60px;padding:12px 14px;">';
-
-  // ── CARD PRINCIPAL ──────────────────────────────────────────────
-  h+='<div style="background:linear-gradient(160deg,#0f0d0a 0%,#181410 100%);border:1px solid rgba(201,168,76,.2);border-radius:20px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.8);">';
-
+      +'<label style="font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;color:'+T3+';font-weight:500;">'+lbl+'</label>'
+      +'<input type="number" id="'+id+'" value="'+ph+'" placeholder="'+ph+'" '+(xtra||'')
+      +' oninput="tc_calcular()" style="background:'+C3+';border:1px solid '+BD2+';border-radius:8px;'
+      +'padding:10px 12px;color:'+TX+';font-size:.88rem;width:100%;font-family:Outfit,sans-serif;'
+      +'outline:none;-webkit-appearance:none;"></div>';
+  }
+  function sec(t){
+    return '<div style="font-size:.55rem;letter-spacing:2px;text-transform:uppercase;color:'+T4
+      +';margin:16px 0 7px;font-weight:600;">'+t+'</div>';
+  }
+  var h='<div style="max-width:520px;margin:0 auto 60px;padding:12px;">';
+  // Card
+  h+='<div style="background:'+C2+';border:1px solid '+BD+';border-radius:18px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.7);">';
   // Header
-  h+='<div style="background:linear-gradient(135deg,rgba(201,168,76,.13),rgba(201,168,76,.04));border-bottom:1px solid rgba(201,168,76,.14);padding:18px 20px 15px;display:flex;justify-content:space-between;align-items:center;">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid '+BD+';background:linear-gradient(160deg,#0e0c02,'+C2+');">';
   h+='<div>';
-  h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">';
-  h+='<span style="font-size:1.05rem;">🏛️</span>';
-  h+='<span style="font-family:\'Cormorant Garamond\',Georgia,serif;font-size:1.1rem;font-weight:700;color:var(--gold2);letter-spacing:.4px;">Calculadora de Túmulo</span>';
+  h+='<div style="font-family:DM Mono,monospace;font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:'+GOLD+';font-weight:600;">⚰️ Calculadora de Túmulo</div>';
+  h+='<div style="font-size:.68rem;color:'+T3+';margin-top:3px;font-weight:400;">'+matNm+'</div>';
   h+='</div>';
-  h+='<div style="font-size:.57rem;color:var(--t4);letter-spacing:.2px;">Configure o modelo e obtenha o orçamento automático</div>';
+  h+='<button onclick="closeTumCalc()" style="background:'+C3+';border:1px solid '+BD+';color:'+T2
+    +';cursor:pointer;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;'
+    +'justify-content:center;font-size:.85rem;flex-shrink:0;font-family:Outfit,sans-serif;">✕</button>';
   h+='</div>';
-  h+='<button onclick="closeTumCalc()" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:50%;width:34px;height:34px;color:var(--t3);font-size:.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s;" onmouseover="this.style.background=\'rgba(255,255,255,.14)\'" onmouseout="this.style.background=\'rgba(255,255,255,.07)\'">✕</button>';
-  h+='</div>';
-
-  // Banner material
-  var mBg=hasMat?'rgba(201,168,76,.06)':'rgba(220,70,50,.07)';
-  var mBd=hasMat?'rgba(201,168,76,.22)':'rgba(220,70,50,.28)';
-  h+='<div style="margin:14px 20px 0;background:'+mBg+';border:1px solid '+mBd+';border-radius:11px;padding:10px 14px;display:flex;align-items:center;gap:9px;">';
-  h+='<span style="font-size:1rem;">'+(hasMat?'🪨':'⚠️')+'</span>';
-  h+='<span style="font-size:.72rem;color:var(--t2);line-height:1.4;">'+matNm+'</span>';
-  h+='</div>';
-
-  h+='<div style="padding:2px 20px 26px;">';
-
-  // ── MODELO ──────────────────────────────────────────────────────
-  h+=sec('📐','Modelo Padrão','Tipo de túmulo a cotar');
-  h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;" id="tc_presets">';
+  // Body
+  h+='<div style="padding:16px 18px 22px;">';
+  // Presets
+  h+=sec('Modelo');
+  h+='<div id="tc_presets" style="display:flex;flex-wrap:wrap;gap:7px;">';
   TC_PRESETS.forEach(function(p){
-    h+='<button onclick="_tcSelPreset(\''+p.id+'\')" id="tcpr_'+p.id+'"'
-      +' style="padding:11px 6px;border-radius:12px;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);font-size:.72rem;font-weight:600;color:var(--t2);cursor:pointer;font-family:Outfit,sans-serif;transition:all .2s;text-align:center;">'+p.nm+'</button>';
+    h+='<button data-pid="'+p.id+'" onclick="_tcSelPreset(this.getAttribute(\'data-pid\'))" id="tcpr_'+p.id
+      +'" style="padding:7px 14px;border-radius:20px;border:1px solid '+BD2+';background:'+C3
+      +';font-size:.73rem;color:'+T2+';cursor:pointer;font-family:Outfit,sans-serif;transition:all .15s;font-weight:500;">'+p.nm+'</button>';
   });
   h+='</div>';
-
-  // ── TIPO SERVIÇO ─────────────────────────────────────────────────
-  h+=sec('🔧','Tipo de Serviço','Escopo de trabalho e mão de obra');
-  h+='<div style="display:flex;flex-direction:column;gap:8px;" id="tc_tipos">';
+  // Tipo serviço
+  h+=sec('Tipo de Serviço');
+  h+='<div id="tc_tipos" style="display:flex;flex-direction:column;gap:6px;">';
   TC_TIPOS_SERV.forEach(function(t){
-    h+='<div onclick="_tcSelTipo(\''+t.id+'\')" id="tctp_'+t.id+'"'
-      +' style="padding:12px 14px;border-radius:12px;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);cursor:pointer;transition:all .2s;display:flex;justify-content:space-between;align-items:center;">';
-    h+='<span style="font-size:.8rem;font-weight:700;color:var(--tx);">'+t.nm+'</span>';
-    h+='<span style="font-size:.57rem;color:var(--t4);background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:3px 8px;white-space:nowrap;">'+t.badge+'</span>';
-    h+='</div>';
+    h+='<div data-tid="'+t.id+'" onclick="_tcSelTipo(this.getAttribute(\'data-tid\'))" id="tctp_'+t.id
+      +'" style="padding:10px 14px;border-radius:10px;border:1px solid '+BD+';background:'+C3
+      +';cursor:pointer;transition:all .15s;">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;">'
+      +'<span style="font-size:.82rem;font-weight:600;color:'+TX+';">'+t.nm+'</span>'
+      +'<span style="font-size:.58rem;color:'+T4+';border:1px solid '+BD+';border-radius:4px;padding:2px 7px;background:'+C4+';">'+t.badge+'</span>'
+      +'</div></div>';
   });
   h+='</div>';
-
-  // ── DIMENSÕES ────────────────────────────────────────────────────
-  h+=sec('📏','Dimensões','Em centímetros');
+  // Dimensões
+  h+=sec('Dimensões — em centímetros');
   h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">';
-  h+=inp('tc_C','Comprimento (cm)','200');
-  h+=inp('tc_L','Largura (cm)','70');
+  h+=inp('tc_C','Comprimento','200');
+  h+=inp('tc_L','Largura','70');
   h+=inp('tc_N','Nº Gavetas','2','min="0" max="6" step="1"');
   h+='<div style="display:flex;flex-direction:column;gap:5px;">'
-    +'<label style="font-size:.57rem;color:var(--t4);text-transform:uppercase;letter-spacing:.8px;font-weight:600;">Disposição</label>'
-    +'<select id="tc_disp" onchange="tc_calcular()"'
-    +' onfocus="this.style.borderColor=\'rgba(201,168,76,.55)\'" onblur="this.style.borderColor=\'rgba(255,255,255,.1)\'"'
-    +' style="'+IS+'">'
+    +'<label style="font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;color:'+T3+';font-weight:500;">Disposição</label>'
+    +'<select id="tc_disp" onchange="tc_calcular()" style="background:'+C3+';border:1px solid '+BD2
+    +';border-radius:8px;padding:10px 12px;color:'+TX+';font-size:.88rem;width:100%;font-family:Outfit,sans-serif;outline:none;">'
     +'<option value="vertical">Vertical (empilhado)</option>'
     +'<option value="horizontal">Horizontal (lado a lado)</option>'
     +'</select></div>';
-  h+=inp('tc_Ae','Base / Plataforma (cm)','30');
-  h+=inp('tc_Hcomp','Alt. livre gaveta (cm)','45');
-  h+=inp('tc_Hlaje','Esp. laje / tampa (cm)','8');
-  h+=inp('tc_E','Esp. pedra (cm)','3','min="1" max="6"');
+  h+=inp('tc_Ae','Base / Plataforma','30');
+  h+=inp('tc_Hcomp','Alt. livre gaveta','45');
+  h+=inp('tc_Hlaje','Esp. laje','8');
+  h+=inp('tc_E','Esp. pedra','3','min="1" max="6"');
   h+='</div>';
   h+='<div style="margin-top:10px;">';
-  h+=inp('tc_AltMan','Altura total manual (cm) — 0 = calcular automaticamente','0','min="0"');
+  h+=inp('tc_AltMan','Altura total manual — 0 = automático','0','min="0"');
   h+='</div>';
-
-  // ── PEÇAS ────────────────────────────────────────────────────────
-  h+=sec('🧱','Peças de Pedra','Faces a incluir no orçamento');
-  h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;" id="tc_pecas">';
-  [{k:'tampa',l:'Tampa',ic:'⬜'},{k:'lat_esq',l:'Lat. Esq.',ic:'◧'},{k:'lat_dir',l:'Lat. Dir.',ic:'◨'},{k:'frente',l:'Frente',ic:'🔲'},
-   {k:'fundo',l:'Fundo',ic:'⬛'},{k:'lapide',l:'Lápide',ic:'🪦'},{k:'rodape',l:'Rodapé',ic:'▬'}].forEach(function(p){
-    h+='<button onclick="_tcTogPeca(\''+p.k+'\')" id="tcpc_'+p.k+'"'
-      +' style="padding:9px 4px;border-radius:11px;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);font-size:.63rem;font-weight:600;color:var(--t2);cursor:pointer;font-family:Outfit,sans-serif;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;line-height:1.2;">'
-      +'<span style="font-size:.9rem;">'+p.ic+'</span>'+p.l+'</button>';
+  // Peças
+  h+=sec('Peças de Pedra');
+  h+='<div id="tc_pecas" style="display:flex;flex-wrap:wrap;gap:7px;">';
+  var pecaList=[{k:'tampa',l:'Tampa'},{k:'lat_esq',l:'Lat. Esq.'},{k:'lat_dir',l:'Lat. Dir.'},
+    {k:'frente',l:'Frente'},{k:'fundo',l:'Fundo'},{k:'lapide',l:'Lápide'},{k:'rodape',l:'Rodapé'}];
+  pecaList.forEach(function(p){
+    h+='<button data-pk="'+p.k+'" onclick="_tcTogPeca(this.getAttribute(\'data-pk\'))" id="tcpc_'+p.k
+      +'" style="padding:7px 14px;border-radius:20px;border:1px solid '+BD2+';background:'+C3
+      +';font-size:.73rem;color:'+T2+';cursor:pointer;font-family:Outfit,sans-serif;transition:all .15s;font-weight:500;">'+p.l+'</button>';
   });
   h+='</div>';
-
-  // ── ACABAMENTO ───────────────────────────────────────────────────
-  h+=sec('✨','Acabamento','Tratamento superficial das peças');
-  h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;" id="tc_acabs">';
+  // Acabamento
+  h+=sec('Acabamento');
+  h+='<div id="tc_acabs" style="display:flex;flex-wrap:wrap;gap:6px;">';
   TC_ACABAMENTOS.forEach(function(a){
-    var pr=a.prML>0?'<span style="display:block;font-size:.5rem;color:var(--gold3);margin-top:2px;font-weight:400;">+R$'+a.prML+'/ml</span>'
-                    :'<span style="display:block;font-size:.5rem;color:var(--t4);margin-top:2px;font-weight:400;">incluso</span>';
-    h+='<button onclick="_tcSelAcab(\''+a.id+'\')" id="tcac_'+a.id+'"'
-      +' style="padding:9px 6px;border-radius:11px;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);font-size:.7rem;font-weight:700;color:var(--t2);cursor:pointer;font-family:Outfit,sans-serif;transition:all .2s;text-align:center;line-height:1.2;">'
-      +a.nm+pr+'</button>';
+    h+='<button data-ak="'+a.id+'" onclick="_tcSelAcab(this.getAttribute(\'data-ak\'))" id="tcac_'+a.id
+      +'" style="padding:5px 11px;border-radius:16px;border:1px solid '+BD2+';background:'+C3
+      +';font-size:.7rem;color:'+T2+';cursor:pointer;font-family:Outfit,sans-serif;transition:all .15s;">'+a.nm+'</button>';
   });
   h+='</div>';
-
-  // ── RESUMO ───────────────────────────────────────────────────────
-  h+='<div style="margin-top:20px;background:linear-gradient(135deg,rgba(201,168,76,.1),rgba(201,168,76,.04));border:1px solid rgba(201,168,76,.22);border-radius:14px;padding:14px 16px;">';
-  h+='<div style="font-size:.53rem;color:var(--t4);text-transform:uppercase;letter-spacing:.8px;font-weight:600;margin-bottom:10px;">📊 Resumo em tempo real</div>';
-  h+='<div id="tc_livebar" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">—</div>';
-  h+='</div>';
-  h+='<div id="tc_detalhes"></div>';
-
-  // ── BOTÃO ────────────────────────────────────────────────────────
-  h+='<button onclick="_tcAplicar()" style="width:100%;background:linear-gradient(135deg,#c9a84c,#e2c06a);color:#0c0b08;border:none;border-radius:14px;padding:15px;font-size:.88rem;font-weight:800;cursor:pointer;font-family:Outfit,sans-serif;letter-spacing:.4px;margin-top:16px;box-shadow:0 4px 20px rgba(201,168,76,.22);transition:opacity .2s;" onmouseover="this.style.opacity=\'.88\'" onmouseout="this.style.opacity=\'1\'">✅ Aplicar Peças ao Orçamento</button>';
-
+  // Live bar
+  h+='<div id="tc_livebar" style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;'
+    +'background:'+C3+';border:1px solid '+GB+';border-radius:12px;padding:12px 8px;margin-top:16px;"></div>';
+  h+='<div id="tc_detalhes" style="margin-top:8px;"></div>';
+  // Botão
+  h+='<button onclick="_tcAplicar()" style="width:100%;background:linear-gradient(135deg,'+GOLD+',#b8943c);'
+    +'color:#000;border:none;border-radius:12px;padding:15px;font-size:.92rem;font-weight:800;cursor:pointer;'
+    +'font-family:Outfit,sans-serif;letter-spacing:.3px;margin-top:14px;'
+    +'box-shadow:0 4px 20px rgba(201,168,76,.25);">✅ Aplicar ao Orçamento</button>';
   h+='</div></div></div>';
   return h;
 }
 
-// ── UI STATE ──────────────────────────────────────────────────────
 function _tcRefresh(){
   var ON_BD='rgba(201,168,76,.6)', OFF_BD='rgba(255,255,255,.1)';
   var ON_BG='rgba(201,168,76,.12)', OFF_BG='rgba(255,255,255,.04)';
