@@ -1005,48 +1005,52 @@ function renderAmbientes(){
     if(amb.tipo==='Túmulo'){
       if(!amb.tumExtra)amb.tumExtra={};
       var te=amb.tumExtra;
-      h+='<div style="background:rgba(201,168,76,.05);border:1px solid rgba(201,168,76,.15);border-radius:14px;padding:14px 14px 12px;margin:10px 0;">';
-      // Cabeçalho
+      // Auto-calcular peças na primeira vez
+      if(!amb.pecas||!amb.pecas.length){
+        amb.pecas=_calcTumPecas(te);
+      }
+      h+='<div style="background:rgba(201,168,76,.05);border:1px solid rgba(201,168,76,.15);border-radius:14px;padding:14px;margin:10px 0;">';
       h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">';
       h+='<div style="width:3px;height:18px;background:linear-gradient(to bottom,var(--gold),rgba(201,168,76,.2));border-radius:2px;"></div>';
       h+='<span style="font-size:.65rem;font-weight:700;color:var(--gold2);letter-spacing:.3px;">⚰️ Dados do Túmulo</span>';
       h+='</div>';
-      // Grid de campos
+      // Falecido, Cemitério, Quadra, Lote
       h+='<div style="display:flex;flex-direction:column;gap:9px;">';
       h+='<div class="f"><label>Falecido(a)</label><input placeholder="Nome do falecido" type="text" style="background:var(--s3);" value="'+escH(te.falecido||'')+'" oninput="updTumExtra('+amb.id+',\'falecido\',this.value)"></div>';
       h+='<div class="f"><label>Cemitério</label><input placeholder="Nome do cemitério" type="text" style="background:var(--s3);" value="'+escH(te.cemiterio||'')+'" oninput="updTumExtra('+amb.id+',\'cemiterio\',this.value)"></div>';
       h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">';
       h+='<div class="f"><label>Quadra</label><input placeholder="Q-12" type="text" style="background:var(--s3);" value="'+escH(te.quadra||'')+'" oninput="updTumExtra('+amb.id+',\'quadra\',this.value)"></div>';
-      h+='<div class="f"><label>Lote / Número</label><input placeholder="L-04" type="text" style="background:var(--s3);" value="'+escH(te.lote||'')+'" oninput="updTumExtra('+amb.id+',\'lote\',this.value)"></div>';
+      h+='<div class="f"><label>Lote</label><input placeholder="L-04" type="text" style="background:var(--s3);" value="'+escH(te.lote||'')+'" oninput="updTumExtra('+amb.id+',\'lote\',this.value)"></div>';
       h+='</div>';
-      h+='<div class="f"><label>Tipo de Túmulo</label><select style="background:var(--s3);color:var(--tx);border:1px solid var(--bd);border-radius:7px;padding:8px 10px;width:100%;font-size:.82rem;font-family:Outfit,sans-serif;" onchange="updTumExtra('+amb.id+',\'subtipo\',this.value)">';
-      ['Simples','Gaveta Dupla','Gaveta Tripla','Jazigo Familiar','Reforma / Revestimento','Monumento / Capelinha'].forEach(function(st){
-        h+='<option value="'+st+'"'+(te.subtipo===st?' selected':'')+'>'+st+'</option>';
+      h+='</div>';
+      // Separador
+      h+='<div style="border-top:1px solid rgba(201,168,76,.12);margin:12px 0;"></div>';
+      h+='<div style="font-size:.6rem;font-weight:700;color:var(--gold2);letter-spacing:.3px;margin-bottom:10px;">📐 Dimensões</div>';
+      // Inputs de dimensão — preenchem peças automaticamente
+      h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">';
+      h+='<div class="f"><label>Comprimento (cm)</label><input type="number" id="td_C_'+amb.id+'" value="'+(te.comprimento||200)+'" min="50" max="400" onchange="updTumuloDims('+amb.id+')" style="background:var(--s3);"></div>';
+      h+='<div class="f"><label>Largura (cm)</label><input type="number" id="td_L_'+amb.id+'" value="'+(te.largura||70)+'" min="30" max="200" onchange="updTumuloDims('+amb.id+')" style="background:var(--s3);"></div>';
+      h+='<div class="f"><label>Nº Gavetas</label><select id="td_N_'+amb.id+'" onchange="updTumuloDims('+amb.id+')" style="background:var(--s3);color:var(--tx);border:1px solid var(--bd);border-radius:7px;padding:8px 10px;width:100%;font-size:.82rem;font-family:Outfit,sans-serif;">';
+      [0,1,2,3,4].forEach(function(n){
+        h+='<option value="'+n+'"'+((te.gavetas===n||(te.gavetas===undefined&&n===1))?' selected':'')+'>'+n+(n===0?' (simples)':n===1?' gaveta':' gavetas')+'</option>';
       });
       h+='</select></div>';
+      h+='<div class="f"><label>Tipo de Serviço</label><select id="td_SV_'+amb.id+'" onchange="updTumuloDims('+amb.id+')" style="background:var(--s3);color:var(--tx);border:1px solid var(--bd);border-radius:7px;padding:8px 10px;width:100%;font-size:.82rem;font-family:Outfit,sans-serif;">';
+      h+='<option value="rev"'+(!te.tipoServ||te.tipoServ==="rev"?" selected":"")+'>Só Revestimento</option>';
+      h+='<option value="estrutura"'+(te.tipoServ==="estrutura"?" selected":"")+'>Estrutura Completa</option>';
+      h+='<option value="reforma"'+(te.tipoServ==="reforma"?" selected":"")+'>Reforma / Troca</option>';
+      h+='</select></div>';
       h+='</div>';
-      // Botão calculadora
-      h+='<button onclick="openTumCalc('+amb.id+')" style="width:100%;margin-top:12px;background:linear-gradient(135deg,rgba(201,168,76,.15),rgba(201,168,76,.08));border:1px solid rgba(201,168,76,.4);border-radius:11px;padding:12px 14px;color:var(--gold2);font-size:.8rem;font-weight:700;cursor:pointer;font-family:Outfit,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .2s;" onmouseover="this.style.background=\'linear-gradient(135deg,rgba(201,168,76,.22),rgba(201,168,76,.12))\'" onmouseout="this.style.background=\'linear-gradient(135deg,rgba(201,168,76,.15),rgba(201,168,76,.08))\'">🧮 Calculadora de Túmulo</button>';
-      if(amb.tumExtra&&amb.tumExtra.calc_ok){
-        var te2=amb.tumExtra;
-        h+='<div style="margin-top:10px;background:linear-gradient(135deg,rgba(40,180,100,.07),rgba(40,180,100,.03));border:1px solid rgba(40,180,100,.22);border-radius:11px;padding:10px 12px;">';
-        h+='<div style="font-size:.55rem;font-weight:700;color:#4dc87a;text-transform:uppercase;letter-spacing:.7px;margin-bottom:7px;">✅ Calculado</div>';
-        h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;">';
-        var stat=function(ic,lbl,val){
-          return '<div style="background:rgba(0,0,0,.2);border-radius:8px;padding:7px 4px;text-align:center;">'
-            +'<div style="font-size:.75rem;">' +ic+'</div>'
-            +'<div style="font-size:.62rem;font-weight:700;color:var(--t1);margin:2px 0 1px;">'+val+'</div>'
-            +'<div style="font-size:.5rem;color:var(--t4);">'+lbl+'</div>'
-            +'</div>';
-        };
-        h+=stat('📐','m²',te2.m2_total);
-        h+=stat('⚖️','kg',te2.peso_kg);
-        h+=stat('📅','dias',te2.prazo_dias);
-        if(te2.altura_cm) h+=stat('📏','alt',te2.altura_cm+'cm');
-        h+='</div>';
-        if(te2.subtipo) h+='<div style="font-size:.62rem;color:var(--t4);margin-top:6px;text-align:center;">'+escH(te2.subtipo)+'</div>';
-        h+='</div>';
+      // Indicador de peças calculadas
+      var _np=(amb.pecas||[]).filter(function(p){return p.w>0;}).length;
+      var _m2=te.m2_total||0;
+      h+='<div id="tum_status_'+amb.id+'" style="margin-top:10px;padding:8px 10px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.12);border-radius:8px;font-size:.68rem;color:'+(_np>0?'var(--gold2)':'var(--t3)')+';text-align:center;">';
+      if(_np>0){
+        h+='📐 '+_np+' peças'+(_m2?' — '+_m2+'m²':'')+''+(te.prazo_dias?' · '+te.prazo_dias+' dias':'');
+      }else{
+        h+='💡 Preencha as dimensões acima para calcular as peças';
       }
+      h+='</div>';
       h+='</div>';
     }
     if(amb.tipo==='🏊 Borda Piscina'){
