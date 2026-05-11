@@ -1274,7 +1274,7 @@ var TUM_V12_HTML = `
   </div>
   <!-- BUSCA -->
   <div class="f" style="margin-bottom:14px">
-    <input id="histBusca" type="text" placeholder="Buscar por cliente, cemitério, material..." oninput="renderHistorico()">
+    <input id="histBusca" type="text" placeholder="Buscar por cliente, cemitério, material...">
   </div>
   <div id="histList"></div>
   <div id="histEmpty" style="text-align:center;padding:60px 20px;color:var(--t4);display:none">
@@ -1418,10 +1418,9 @@ function _tumV12OpenModal() {
   overlay.innerHTML = TUM_V12_HTML;
   document.body.appendChild(overlay);
 
-  // BRIDGE: sync com o CFG do app principal (salvo antes do v12 sobrescrever)
+  // BRIDGE: sync com o CFG do app principal (window.CFG)
   try {
-    // Reler CFG principal do localStorage — garantido que tem .stones
-    var _mc = JSON.parse(localStorage.getItem('hr_cfg') || 'null') || _mainCFG;
+    var _mc = window.CFG || _mainCFG;
     if(_mc) {
       if(_mc.stones && _mc.stones.length) {
         CFG.pedras = _mc.stones.map(function(s){
@@ -1467,7 +1466,7 @@ function _tumV12OpenModal() {
     }
     // Forçar sync de pedras ANTES de init()
     try {
-      var _mc2 = JSON.parse(localStorage.getItem('hr_cfg') || 'null');
+      var _mc2 = window.CFG || _mainCFG;
       if (_mc2 && _mc2.stones && _mc2.stones.length) {
         _tumSyncStones(_mc2.stones);
       }
@@ -1545,9 +1544,9 @@ function renderTum() { _tumV12OpenModal(); }
 // ══════════════════════════════════════════════
 
 // Salvar CFG do app principal ANTES de sobrescrever com o CFG do v12
-var _mainCFG = window.CFG || JSON.parse(localStorage.getItem('hr_cfg') || 'null');
-var CFG = JSON.parse(localStorage.getItem('hr_tum_cfg') || 'null');
-var HIST = JSON.parse(localStorage.getItem('hr_tum_hist') || '[]');
+var _mainCFG = window.CFG || null;
+var CFG = (window.CFG && window.CFG.tumulos) ? JSON.parse(JSON.stringify(window.CFG.tumulos)) : null;
+var HIST = [];
 
 var DEF_CFG = {
   emp: { nome:'HR Mármores e Granitos', tel:'(74) 99148-4460', end:'Av. Dep. Rodolfo Queiroz, 653 — Centro', cidade:'Pilão Arcado — BA' },
@@ -1910,7 +1909,7 @@ function iaAplicarResultado(p) {
         esp: nm.esp || 3
       };
       CFG.pedras.push(novaPedra);
-      localStorage.setItem('hr_tum_cfg', JSON.stringify(CFG));
+      if (window.CFG) { window.CFG.tumulos = CFG; window.svCFG?.(); }
       buildPedrasCfg();
       buildMatCats();
       buildMatList();
@@ -2369,7 +2368,6 @@ function init() {
   buildFalecidos();
   loadCfgUI();
   buildPedrasCfg();
-  renderHistorico();
 
   var p = PRESETS.find(function(x){ return x.id === SEL.preset; });
   if (p) aplicarPreset(p, true);
@@ -3754,18 +3752,8 @@ function imprimirPDF() {
 
 function salvarHistorico() {
   if (!pendOrc) { toast('Gere um orçamento primeiro', true); return; }
-  // 1. Salvar no histórico interno v12
-  var idx = HIST.findIndex(function(h){ return h.id === pendOrc.id; });
-  if (idx >= 0) {
-    HIST[idx] = JSON.parse(JSON.stringify(pendOrc));
-  } else {
-    HIST.unshift(JSON.parse(JSON.stringify(pendOrc)));
-    if (HIST.length > 50) HIST.pop();
-  }
-  localStorage.setItem('hr_tum_hist', JSON.stringify(HIST));
-  renderHistorico();
 
-  // 2. PONTE → salvar no DB.q do app principal (Histórico, Agenda, Finanças)
+  // Salvar no DB.q do app principal (Histórico, Agenda, Finanças)
   try {
     if (typeof window.DB !== 'undefined' && window.DB.q) {
       var r = pendOrc.r;
@@ -3825,62 +3813,6 @@ function salvarHistorico() {
 // ══════════════════════════════════════════════
 // HISTÓRICO
 // ══════════════════════════════════════════════
-
-function renderHistorico() {
-  var el = document.getElementById('histList');
-  var em = document.getElementById('histEmpty');
-  var cnt = document.getElementById('histCount');
-
-  var busca = (document.getElementById('histBusca').value || '').toLowerCase();
-  var lista = HIST.filter(function(o) {
-    if (!busca) return true;
-    var falStr = Array.isArray(o.fal) ? o.fal.map(function(f){return f.nome;}).join(' ') : (o.fal||'');
-    var termos = [o.cli, o.cemi, o.matNm, falStr, o.cid, o.quad, o.lote, o.obs].join(' ').toLowerCase();
-    return termos.indexOf(busca) >= 0;
-  });
-
-  cnt.textContent = HIST.length + ' orçamento' + (HIST.length!==1?'s':'') + ' salvo' + (HIST.length!==1?'s':'');
-
-  if (!lista.length) {
-    el.innerHTML = '';
-    em.style.display = 'block';
-    return;
-  }
-  em.style.display = 'none';
-
-  var h = '';
-  lista.forEach(function(o, i) {
-    var r = o.r;
-    var idx = HIST.indexOf(o);
-    h += '<div class="hist-card">'
-       + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'
-       + '<div class="hist-cli">'+o.cli+'</div>'
-       + '<div class="hist-val">R$ '+fm(r.valor_vista)+'</div>'
-       + '</div>'
-       + '<div class="hist-meta">'
-       + (o.num?'<span>🔖 '+o.num+'</span>':'')
-       + (Array.isArray(o.fal) && o.fal.length > 0
-           ? o.fal.map(function(f){ return '<span>⚰️ '+f.nome+'</span>'; }).join('')
-           : (o.fal ? '<span>⚰️ '+o.fal+'</span>' : ''))
-       + (o.cemi?'<span>🏛 '+o.cemi+'</span>':'')
-       + '<span>'+o.matNm+'</span>'
-       + '<span>'+r.d.N+' gav.</span>'
-       + '<span>'+o.date+'</span>'
-       + '</div>'
-       + '<div style="margin-top:6px;display:flex;gap:8px">'
-       + '<span class="badge badge-gold">'+r.m2_total.toFixed(2)+'m²</span>'
-       + '<span class="badge badge-grn">'+r.prazo_total+' dias</span>'
-       + '</div>'
-       + '<div class="hist-actions">'
-       + '<button class="btn btn-out btn-sm" onclick="verHistorico('+idx+')" style="flex:1;justify-content:center">👁 Ver</button>'
-       + '<button class="btn btn-out btn-sm" onclick="recarregarOrcamento('+idx+')" style="flex:1;justify-content:center">✏️ Editar</button>'
-       + '<button class="btn btn-out btn-sm" onclick="copiarWAHist('+idx+')" style="flex:1;justify-content:center">📲 WA</button>'
-       + '<button class="btn btn-red btn-sm" onclick="confirmarDel('+idx+')">🗑</button>'
-       + '</div>'
-       + '</div>';
-  });
-  el.innerHTML = h;
-}
 
 function verHistorico(i) {
   var o = HIST[i];
@@ -3984,8 +3916,6 @@ function confirmarDel(i) {
   btn.textContent = '🗑 Excluir';
   btn.onclick = function() {
     HIST.splice(delIdx, 1);
-    localStorage.setItem('hr_tum_hist', JSON.stringify(HIST));
-    renderHistorico();
     fecharModal('modalDel');
     toast('✓ Removido do histórico');
   };
@@ -3997,8 +3927,6 @@ function confirmarLimpar() {
   btn.textContent = '🗑 Limpar Tudo';
   btn.onclick = function() {
     HIST = [];
-    localStorage.setItem('hr_tum_hist', '[]');
-    renderHistorico();
     fecharModal('modalDel');
     btn.textContent = '🗑 Excluir';
     toast('✓ Histórico limpo');
@@ -4053,7 +3981,7 @@ function testarGroq() {
       res.textContent = '✓ Groq conectado!';
       res.style.color = 'var(--grn)';
       CFG.groqKey = key;
-      localStorage.setItem('hr_tum_cfg', JSON.stringify(CFG));
+      if (window.CFG) { window.CFG.tumulos = CFG; window.svCFG?.(); }
       toast('✓ Chave Groq salva!');
     }
   })
@@ -4061,52 +3989,66 @@ function testarGroq() {
 }
 
 function loadCfgUI() {
-  document.getElementById('cGroqKey').value = CFG.groqKey || '';
-  document.getElementById('cEmpNome').value = CFG.emp.nome;
-  document.getElementById('cEmpTel').value  = CFG.emp.tel;
-  document.getElementById('cEmpEnd').value  = CFG.emp.end;
-  document.getElementById('cEmpCid').value  = CFG.emp.cidade;
-  document.getElementById('cMargem').value  = CFG.margem;
-  document.getElementById('cParc').value    = CFG.parcMax;
-  document.getElementById('cJuros').value   = CFG.juros;
-  document.getElementById('cPedreiro').value   = CFG.mob.pedreiro;
-  document.getElementById('cAjudante').value   = CFG.mob.ajudante;
-  document.getElementById('cInstalacao').value = CFG.mob.instalacao;
-  document.getElementById('cMontagem').value   = CFG.mob.montagem;
-  document.getElementById('cTransporte').value = CFG.mob.transporte;
-  document.getElementById('cCimento').value    = CFG.civil.cimento;
-  document.getElementById('cAreia').value      = CFG.civil.areia;
-  document.getElementById('cBrita').value      = CFG.civil.brita;
-  document.getElementById('cArgamassa').value  = CFG.civil.argamassa;
-  document.getElementById('cFerro38').value    = CFG.civil.ferro38;
-  document.getElementById('cFerro516').value   = CFG.civil.ferro516;
-  document.getElementById('cMalha').value      = CFG.civil.malha;
-  document.getElementById('cBlocos').value     = CFG.civil.blocos;
+  // Sincronizar CFG local com window.CFG.tumulos antes de popular a UI
+  if (window.CFG && window.CFG.tumulos) {
+    var t = window.CFG.tumulos;
+    if (t.civil)  CFG.civil  = t.civil;
+    if (t.mob)    CFG.mob    = t.mob;
+    if (typeof t.margem  !== 'undefined') CFG.margem  = t.margem;
+    if (typeof t.parcMax !== 'undefined') CFG.parcMax = t.parcMax;
+    if (typeof t.juros   !== 'undefined') CFG.juros   = t.juros;
+    if (t.groqKey) CFG.groqKey = t.groqKey;
+    if (t.emp)    CFG.emp    = t.emp;
+    if (t.pedras && t.pedras.length) CFG.pedras = t.pedras;
+  }
+  function _set(id, val) { var el = document.getElementById(id); if (el) el.value = val; }
+  _set('cGroqKey',    CFG.groqKey || '');
+  _set('cEmpNome',    CFG.emp ? CFG.emp.nome   : '');
+  _set('cEmpTel',     CFG.emp ? CFG.emp.tel    : '');
+  _set('cEmpEnd',     CFG.emp ? CFG.emp.end    : '');
+  _set('cEmpCid',     CFG.emp ? CFG.emp.cidade : '');
+  _set('cMargem',     CFG.margem);
+  _set('cParc',       CFG.parcMax);
+  _set('cJuros',      CFG.juros);
+  _set('cPedreiro',   CFG.mob ? CFG.mob.pedreiro   : '');
+  _set('cAjudante',   CFG.mob ? CFG.mob.ajudante   : '');
+  _set('cInstalacao', CFG.mob ? CFG.mob.instalacao : '');
+  _set('cMontagem',   CFG.mob ? CFG.mob.montagem   : '');
+  _set('cTransporte', CFG.mob ? CFG.mob.transporte : '');
+  _set('cCimento',    CFG.civil ? CFG.civil.cimento   : '');
+  _set('cAreia',      CFG.civil ? CFG.civil.areia     : '');
+  _set('cBrita',      CFG.civil ? CFG.civil.brita     : '');
+  _set('cArgamassa',  CFG.civil ? CFG.civil.argamassa : '');
+  _set('cFerro38',    CFG.civil ? CFG.civil.ferro38   : '');
+  _set('cFerro516',   CFG.civil ? CFG.civil.ferro516  : '');
+  _set('cMalha',      CFG.civil ? CFG.civil.malha     : '');
+  _set('cBlocos',     CFG.civil ? CFG.civil.blocos    : '');
 }
 
 function svCfg() {
-  CFG.groqKey  = document.getElementById('cGroqKey').value.trim();
-  CFG.emp.nome   = document.getElementById('cEmpNome').value;
-  CFG.emp.tel    = document.getElementById('cEmpTel').value;
-  CFG.emp.end    = document.getElementById('cEmpEnd').value;
-  CFG.emp.cidade = document.getElementById('cEmpCid').value;
-  CFG.margem  = +(document.getElementById('cMargem').value)  || 35;
-  CFG.parcMax = +(document.getElementById('cParc').value)    || 8;
-  CFG.juros   = +(document.getElementById('cJuros').value)   || 12;
-  CFG.mob.pedreiro   = +(document.getElementById('cPedreiro').value);
-  CFG.mob.ajudante   = +(document.getElementById('cAjudante').value);
-  CFG.mob.instalacao = +(document.getElementById('cInstalacao').value);
-  CFG.mob.montagem   = +(document.getElementById('cMontagem').value);
-  CFG.mob.transporte = +(document.getElementById('cTransporte').value);
-  CFG.civil.cimento   = +(document.getElementById('cCimento').value);
-  CFG.civil.areia     = +(document.getElementById('cAreia').value);
-  CFG.civil.brita     = +(document.getElementById('cBrita').value);
-  CFG.civil.argamassa = +(document.getElementById('cArgamassa').value);
-  CFG.civil.ferro38   = +(document.getElementById('cFerro38').value);
-  CFG.civil.ferro516  = +(document.getElementById('cFerro516').value);
-  CFG.civil.malha     = +(document.getElementById('cMalha').value);
-  CFG.civil.blocos    = +(document.getElementById('cBlocos').value);
-  localStorage.setItem('hr_tum_cfg', JSON.stringify(CFG));
+  var _g = function(id) { var el = document.getElementById(id); return el ? el.value : ''; };
+  CFG.groqKey      = _g('cGroqKey').trim();
+  CFG.emp.nome     = _g('cEmpNome');
+  CFG.emp.tel      = _g('cEmpTel');
+  CFG.emp.end      = _g('cEmpEnd');
+  CFG.emp.cidade   = _g('cEmpCid');
+  CFG.margem       = +(document.getElementById('cMargem')  ? document.getElementById('cMargem').value  : 35)  || 35;
+  CFG.parcMax      = +(document.getElementById('cParc')    ? document.getElementById('cParc').value    : 8)   || 8;
+  CFG.juros        = +(document.getElementById('cJuros')   ? document.getElementById('cJuros').value   : 12)  || 12;
+  CFG.mob.pedreiro   = +(document.getElementById('cPedreiro')   ? document.getElementById('cPedreiro').value   : 0);
+  CFG.mob.ajudante   = +(document.getElementById('cAjudante')   ? document.getElementById('cAjudante').value   : 0);
+  CFG.mob.instalacao = +(document.getElementById('cInstalacao') ? document.getElementById('cInstalacao').value : 0);
+  CFG.mob.montagem   = +(document.getElementById('cMontagem')   ? document.getElementById('cMontagem').value   : 0);
+  CFG.mob.transporte = +(document.getElementById('cTransporte') ? document.getElementById('cTransporte').value : 0);
+  CFG.civil.cimento   = +(document.getElementById('cCimento')   ? document.getElementById('cCimento').value   : 0);
+  CFG.civil.areia     = +(document.getElementById('cAreia')     ? document.getElementById('cAreia').value     : 0);
+  CFG.civil.brita     = +(document.getElementById('cBrita')     ? document.getElementById('cBrita').value     : 0);
+  CFG.civil.argamassa = +(document.getElementById('cArgamassa') ? document.getElementById('cArgamassa').value : 0);
+  CFG.civil.ferro38   = +(document.getElementById('cFerro38')   ? document.getElementById('cFerro38').value   : 0);
+  CFG.civil.ferro516  = +(document.getElementById('cFerro516')  ? document.getElementById('cFerro516').value  : 0);
+  CFG.civil.malha     = +(document.getElementById('cMalha')     ? document.getElementById('cMalha').value     : 0);
+  CFG.civil.blocos    = +(document.getElementById('cBlocos')    ? document.getElementById('cBlocos').value    : 0);
+  if (window.CFG) { window.CFG.tumulos = CFG; window.svCFG?.(); }
   buildMatList();
   calcular();
 }
@@ -4140,7 +4082,7 @@ function buildPedrasCfg() {
 }
 
 function svCfg2() {
-  localStorage.setItem('hr_tum_cfg', JSON.stringify(CFG));
+  if (window.CFG) { window.CFG.tumulos = CFG; window.svCFG?.(); }
   buildMatList();
 }
 
@@ -4161,7 +4103,7 @@ function confirmarAddPedra() {
   if (!nm) { toast('Nome obrigatório', true); return; }
   if (!pr || pr < 10) { toast('Preço inválido', true); return; }
   CFG.pedras.push({ id:'p_'+Date.now(), nm:nm, cat:cat, pr:pr, peso:peso, esp:esp });
-  localStorage.setItem('hr_tum_cfg', JSON.stringify(CFG));
+  if (window.CFG) { window.CFG.tumulos = CFG; window.svCFG?.(); }
   buildPedrasCfg();
   buildMatCats();
   buildMatList();
@@ -4174,7 +4116,7 @@ function remPedra(i) {
   var nm = CFG.pedras[i].nm;
   CFG.pedras.splice(i, 1);
   if (!CFG.pedras.find(function(p){return p.id===SEL.matId;})) SEL.matId = CFG.pedras[0].id;
-  localStorage.setItem('hr_tum_cfg', JSON.stringify(CFG));
+  if (window.CFG) { window.CFG.tumulos = CFG; window.svCFG?.(); }
   buildPedrasCfg();
   buildMatCats();
   buildMatList();
@@ -4184,7 +4126,7 @@ function remPedra(i) {
 function resetCfg() {
   if (!confirm('Restaurar todas as configurações padrão?')) return;
   CFG = JSON.parse(JSON.stringify(DEF_CFG));
-  localStorage.setItem('hr_tum_cfg', JSON.stringify(CFG));
+  if (window.CFG) { window.CFG.tumulos = CFG; window.svCFG?.(); }
   loadCfgUI();
   buildPedrasCfg();
   buildMatCats();
@@ -4205,7 +4147,7 @@ function importarCfg() {
         var cfg = JSON.parse(ev.target.result);
         if (!cfg.emp || !cfg.pedras) throw new Error('Formato inválido');
         CFG = cfg;
-        localStorage.setItem('hr_tum_cfg', JSON.stringify(CFG));
+        if (window.CFG) { window.CFG.tumulos = CFG; window.svCFG?.(); }
         loadCfgUI();
         buildPedrasCfg();
         buildMatCats();
@@ -4592,7 +4534,6 @@ function showTab(id, btn) {
   document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('on'); });
   document.getElementById('pg-'+id).classList.add('on');
   if (btn) btn.classList.add('on');
-  if (id === 'historico') renderHistorico();
   if (id === 'planta') renderPlanta();
   if (id === 'producao') renderProducao();
   if (id === 'chapas') renderChapas();
@@ -4996,7 +4937,7 @@ function _tumAplicarAoAmbiente() {
   var mat = r.mat;
   if (mat && mat.id) {
     try {
-      var mainCFG = JSON.parse(localStorage.getItem('hr_cfg') || 'null');
+      var mainCFG = window.CFG || _mainCFG;
       var stones = (mainCFG && mainCFG.stones) ? mainCFG.stones : [];
       // Tentar match por id, depois por nome
       var stone = stones.find(function(s){ return s.id===mat.id; }) ||
