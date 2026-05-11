@@ -1005,28 +1005,25 @@ function renderAmbientes(){
     if(amb.tipo==='Túmulo'){
       if(!amb.tumExtra)amb.tumExtra={};
       var te=amb.tumExtra;
-      // Auto-calcular peças na primeira vez
-      if(!amb.pecas||!amb.pecas.length){
-        amb.pecas=_calcTumPecas(te);
-      }
+      // Auto-calcular peças se ainda não tem peças reais
+      var _hasRealPecas=(amb.pecas||[]).some(function(p){return p.w>0;});
+      if(!_hasRealPecas){ amb.pecas=_calcTumPecas(te); }
       h+='<div style="background:rgba(201,168,76,.05);border:1px solid rgba(201,168,76,.15);border-radius:14px;padding:14px;margin:10px 0;">';
+      // Cabeçalho
       h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">';
       h+='<div style="width:3px;height:18px;background:linear-gradient(to bottom,var(--gold),rgba(201,168,76,.2));border-radius:2px;"></div>';
-      h+='<span style="font-size:.65rem;font-weight:700;color:var(--gold2);letter-spacing:.3px;">⚰️ Dados do Túmulo</span>';
-      h+='</div>';
-      // Falecido, Cemitério, Quadra, Lote
+      h+='<span style="font-size:.65rem;font-weight:700;color:var(--gold2);letter-spacing:.3px;">⚰️ Dados do Túmulo</span></div>';
+      // Campos do falecido
       h+='<div style="display:flex;flex-direction:column;gap:9px;">';
       h+='<div class="f"><label>Falecido(a)</label><input placeholder="Nome do falecido" type="text" style="background:var(--s3);" value="'+escH(te.falecido||'')+'" oninput="updTumExtra('+amb.id+',\'falecido\',this.value)"></div>';
       h+='<div class="f"><label>Cemitério</label><input placeholder="Nome do cemitério" type="text" style="background:var(--s3);" value="'+escH(te.cemiterio||'')+'" oninput="updTumExtra('+amb.id+',\'cemiterio\',this.value)"></div>';
       h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">';
       h+='<div class="f"><label>Quadra</label><input placeholder="Q-12" type="text" style="background:var(--s3);" value="'+escH(te.quadra||'')+'" oninput="updTumExtra('+amb.id+',\'quadra\',this.value)"></div>';
       h+='<div class="f"><label>Lote</label><input placeholder="L-04" type="text" style="background:var(--s3);" value="'+escH(te.lote||'')+'" oninput="updTumExtra('+amb.id+',\'lote\',this.value)"></div>';
-      h+='</div>';
-      h+='</div>';
-      // Separador
+      h+='</div></div>';
+      // Separador dimensões
       h+='<div style="border-top:1px solid rgba(201,168,76,.12);margin:12px 0;"></div>';
       h+='<div style="font-size:.6rem;font-weight:700;color:var(--gold2);letter-spacing:.3px;margin-bottom:10px;">📐 Dimensões</div>';
-      // Inputs de dimensão — preenchem peças automaticamente
       h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">';
       h+='<div class="f"><label>Comprimento (cm)</label><input type="number" id="td_C_'+amb.id+'" value="'+(te.comprimento||200)+'" min="50" max="400" onchange="updTumuloDims('+amb.id+')" style="background:var(--s3);"></div>';
       h+='<div class="f"><label>Largura (cm)</label><input type="number" id="td_L_'+amb.id+'" value="'+(te.largura||70)+'" min="30" max="200" onchange="updTumuloDims('+amb.id+')" style="background:var(--s3);"></div>';
@@ -1041,16 +1038,15 @@ function renderAmbientes(){
       h+='<option value="reforma"'+(te.tipoServ==="reforma"?" selected":"")+'>Reforma / Troca</option>';
       h+='</select></div>';
       h+='</div>';
-      // Indicador de peças calculadas
+      // Resultado do cálculo
       var _np=(amb.pecas||[]).filter(function(p){return p.w>0;}).length;
-      var _m2=te.m2_total||0;
-      h+='<div id="tum_status_'+amb.id+'" style="margin-top:10px;padding:8px 10px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.12);border-radius:8px;font-size:.68rem;color:'+(_np>0?'var(--gold2)':'var(--t3)')+';text-align:center;">';
       if(_np>0){
-        h+='📐 '+_np+' peças'+(_m2?' — '+_m2+'m²':'')+''+(te.prazo_dias?' · '+te.prazo_dias+' dias':'');
-      }else{
-        h+='💡 Preencha as dimensões acima para calcular as peças';
+        h+='<div style="margin-top:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">';
+        var _s=function(ic,lb,vl){return '<div style="background:rgba(0,0,0,.2);border-radius:8px;padding:7px 4px;text-align:center;"><div style="font-size:.85rem;">'+ic+'</div><div style="font-size:.72rem;font-weight:700;color:var(--gold2);">'+vl+'</div><div style="font-size:.52rem;color:var(--t4);">'+lb+'</div></div>';};
+        h+=_s('📐','m²',te.m2_total||'—');h+=_s('📅','dias',te.prazo_dias||'—');h+=_s('📦','peças',_np);
+        h+='</div>';
       }
-      h+='</div>';
+      h+='<button onclick="openTumCalc('+amb.id+')" style="width:100%;margin-top:10px;background:none;border:1px solid rgba(201,168,76,.25);border-radius:9px;padding:9px;color:var(--t3);font-size:.72rem;cursor:pointer;font-family:Outfit,sans-serif;">🧮 Calculadora Avançada v12 (tampas, lápide, estrutura civil...)</button>';
       h+='</div>';
     }
     if(amb.tipo==='🏊 Borda Piscina'){
@@ -2621,6 +2617,74 @@ function updTumCfgMargem(el){
   CFG.tumulos.margem=+el.value;
   svCFG();
 }
+
+// ══════════════════════════════════════════════════════════════
+// TÚMULO — funções auxiliares
+// ══════════════════════════════════════════════════════════════
+
+function updTumExtra(ambId,field,val){
+  var amb=ambientes.find(function(a){return a.id==ambId;});
+  if(!amb)return;
+  if(!amb.tumExtra)amb.tumExtra={};
+  amb.tumExtra[field]=val;
+}
+
+function _calcTumPecas(te){
+  var C=(te.comprimento||200)/100,L=(te.largura||70)/100;
+  var E=(te.espessura||3)/100,N=te.gavetas===undefined?1:+te.gavetas;
+  var Ae=0.30,Hcomp=0.45,Hlaje=0.08;
+  var At=N===0?E+0.02:N*(Hcomp+Hlaje),A=Ae+At,Avis=At;
+  var N_lajes=Math.max(0,N-1),mol=0.10;
+  var Cu=Math.max(C-2*mol,0.10),Lu=Math.max(L-2*mol,0.10);
+  var t=Date.now(),pcs=[];
+  pcs.push({id:t+1,desc:'Tampa Superior',  w:Math.round(Cu*100),h:Math.round(Lu*100),q:1});
+  pcs.push({id:t+2,desc:'Moldura Superior',w:Math.round(C*100), h:Math.round(L*100), q:1});
+  pcs.push({id:t+3,desc:'Lateral Esquerda',w:Math.round(Avis*100),h:Math.round(L*100),q:1});
+  pcs.push({id:t+4,desc:'Lateral Direita', w:Math.round(Avis*100),h:Math.round(L*100),q:1});
+  pcs.push({id:t+5,desc:'Frente',          w:Math.round(Avis*100),h:Math.round(C*100),q:1});
+  if(N_lajes>0){
+    var Cq=Math.max(C-2*E,0.10),Lq=Math.max(L-2*E,0.05);
+    pcs.push({id:t+6,desc:'Laje divisória',w:Math.round(Cq*100),h:Math.round(Lq*100),q:N_lajes});
+  }
+  return pcs;
+}
+
+function updTumuloDims(ambId){
+  var amb=ambientes.find(function(a){return a.id==ambId;});
+  if(!amb)return;
+  if(!amb.tumExtra)amb.tumExtra={};
+  var te=amb.tumExtra;
+  var gv=function(id){var el=document.getElementById(id);return el?el.value:null;};
+  if(gv('td_C_'+ambId)!==null) te.comprimento=+gv('td_C_'+ambId)||200;
+  if(gv('td_L_'+ambId)!==null) te.largura=+gv('td_L_'+ambId)||70;
+  if(gv('td_N_'+ambId)!==null) te.gavetas=+gv('td_N_'+ambId);
+  if(gv('td_SV_'+ambId)!==null) te.tipoServ=gv('td_SV_'+ambId)||'rev';
+  amb.pecas=_calcTumPecas(te);
+  var m2b=amb.pecas.reduce(function(s,p){return s+(p.w/100)*(p.h/100)*(p.q||1);},0);
+  te.m2_total=+(m2b*1.08).toFixed(2);
+  te.prazo_dias=Math.max(3,Math.ceil(m2b/5)+(te.gavetas||0));
+  te.altura_cm=Math.round((0.30+(te.gavetas||0)*0.53)*100);
+  te.calc_ok=true;
+  if(te.tipoServ==='estrutura'){
+    amb.svState=amb.svState||{};amb.svState['tum_montc']={on:true};
+  } else {
+    amb.svState=amb.svState||{};amb.svState['tum_mont']={on:true};
+  }
+  renderAmbientes();
+}
+
+// Configurações de Túmulo
+function updTumCfg(el){
+  var cat=el.getAttribute('data-tcat'),key=el.getAttribute('data-tkey');
+  if(!CFG.tumulos)CFG.tumulos={};
+  if(!CFG.tumulos[cat])CFG.tumulos[cat]={};
+  CFG.tumulos[cat][key]=+el.value;svCFG();
+}
+function updTumCfgMargem(el){
+  if(!CFG.tumulos)CFG.tumulos={};
+  CFG.tumulos.margem=+el.value;svCFG();
+}
+
 function buildCfg(){
   var h='';
   if(cfgTab===0){
@@ -4543,11 +4607,8 @@ function openTumCalc(ambId){
     _tumV12OpenModal();
     // Após abrir, pre-preencher dados do ambiente
     setTimeout(function(){
-      // ── Sincronizar pedras do catálogo principal → v12 ──
-      if(typeof window._tumSyncStones==='function'){
-        window._tumSyncStones(CFG.stones||[]);
-      }
-      // Pre-preencher do app principal (não perguntar duas vezes)
+      // Sync pedras e pré-preencher cliente
+      if(typeof window._tumSyncStones==='function'){window._tumSyncStones(CFG.stones||[]);}
       var cliEl=document.getElementById('iCli');
       if(cliEl){var v=document.getElementById('oCliente');if(v&&v.value)cliEl.value=v.value;}
       var telEl=document.getElementById('iTel');
